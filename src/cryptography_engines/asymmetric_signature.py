@@ -1,7 +1,8 @@
 from pqcrypto.sign import dilithium4 as algorithm
 
 
-class _asymmetric_signature:
+class asymmetric_signature:
+
     @staticmethod
     def generate_keypair() -> tuple[bytes, bytes]:
         return algorithm.generate_keypair()
