@@ -1,3 +1,4 @@
+from enum import Enum
 from itertools import islice
 from math import ceil
 from os import urandom
@@ -12,6 +13,11 @@ from ...cryptography_engines.symmetric_cipher import symmetric_cipher, iv_contex
 from ...cryptography_engines.message_authentication_codes import message_authentication_codes
 
 from pydivert.packet import Packet
+
+
+class stack_direction(Enum):
+    down = 0
+    up = 1
 
 
 class custom_tcp_stack:
@@ -77,46 +83,63 @@ class custom_tcp_stack:
         self._flow_down_queue.join()
 
     def _flow_down(self, stream: list[Packet]):
-        # apply symmetric encryption and kmac to each packet individually
-        for layer in range(self._relay_node_layers):
-            layer6_presentation.symmetric_encrypt_stream_payloads(stream, self._packet_symmetric_encryption_keys[layer], self._packet_symmetric_encryption_ivs[layer])
-            layer6_presentation.kmac_append_to_stream_payloads(stream, self._packet_kmac_keys[layer])
 
-        # generate signature from the entire stream (post individual packet encryption)
-        concatenated_payloads           = b"".join([packet.payload for packet in stream])
-        concatenated_payloads_signature = layer6_presentation.sign_payload(concatenated_payloads, self._connection_asymmetric_signature_key)
-
-        # chunk the signature into equal lengths (amount of chunks = number of packets in stream)
-        chunked_payloads_signature_lengths = ceil(len(concatenated_payloads_signature) / len(stream))
-        chunked_payloads_signature_chunks  = [concatenated_payloads_signature[i : i + chunked_payloads_signature_lengths] for i in range(0, len(concatenated_payloads_signature), chunked_payloads_signature_lengths)]
-
-        # append each signature chunk to the corresponding packet (by index)
-        for chunked_payloads_signature_chunk, packet in zip(chunked_payloads_signature_chunks, stream):
-            packet.payload += chunked_payloads_signature_chunk
-
-        # encrypt the entire stream (including the added signature chunks)
-        current_payload_lengths = [len(packet.payload) for packet in stream]
-
-        concatenated_payloads             = b"".join([packet.payload for packet in stream])
-        concatenated_payloads_encrypted   = symmetric_cipher.encrypt(concatenated_payloads, self._connection_symmetric_encryption_key, self._connection_symmetric_encryption_iv)
-        chunked_payloads_encrypted_chunks = b"".join(islice(iter(concatenated_payloads_encrypted), i) for i in current_payload_lengths)
-        for chunked_payloads_encrypted_chunk, packet in zip(chunked_payloads_encrypted_chunks, stream):
-            packet.payload = chunked_payloads_encrypted_chunk
-
-        # generate kmac for entire stream (post connection encryption)
-        concatenated_payloads = b"".join([packet.payload for packet in stream])
-        concatenated_payloads_kmac = message_authentication_codes.generate_tag(concatenated_payloads)
-
-        # chunk the kmac into equal lengths (amount of chunks = number of packets in stream)
-        chunked_payloads_kmac_lengths = ceil(len(concatenated_payloads_kmac) / len(stream))
-        chunked_payloads_kmac_chunks  = [concatenated_payloads_kmac[i : i + chunked_payloads_kmac_lengths] for i in range(0, len(concatenated_payloads_kmac), chunked_payloads_kmac_lengths)]
-
-        # append each kmac chunk to the corresponding packet (by index)
-        for chunked_payloads_kmac_chunk, packet in zip(chunked_payloads_kmac_chunks, stream):
-            packet.payload += chunked_payloads_kmac_chunk
-
+        self._level6_presentation(stream, stack_direction.down)
         # level5_session
         # level4_transport
         # level3_network
 
         self._packet_injector.inject_stream(stream)
+
+    def _level6_presentation(self, stream: list[Packet], direction: stack_direction):
+        if direction == stack_direction.down:
+
+            """SYMMETRIC PACKET ENCRYPTION"""
+
+            # apply symmetric encryption and kmac to each packet individually
+            for layer in range(self._relay_node_layers):
+                # TODO : layer6_presentation.add_next_hop_ip(stream, [])
+                layer6_presentation.symmetric_encrypt_stream_payloads(stream, self._packet_symmetric_encryption_keys[layer], self._packet_symmetric_encryption_ivs[layer])
+                layer6_presentation.kmac_append_to_stream_payloads(stream, self._packet_kmac_keys[layer])
+
+            """ASYMMETRIC CONNECTION SIGNATURE"""
+
+            # generate signature from the entire stream (post individual packet encryption)
+            concatenated_payloads           = b"".join([packet.payload for packet in stream])
+            concatenated_payloads_signature = layer6_presentation.sign_payload(concatenated_payloads, self._connection_asymmetric_signature_key)
+
+            # chunk the signature into equal lengths (amount of chunks = number of packets in stream)
+            chunked_payloads_signature_lengths = ceil(len(concatenated_payloads_signature) / len(stream))
+            chunked_payloads_signature_chunks  = [concatenated_payloads_signature[i : i + chunked_payloads_signature_lengths] for i in range(0, len(concatenated_payloads_signature), chunked_payloads_signature_lengths)]
+
+            # append each signature chunk to the corresponding packet (by index)
+            for chunked_payloads_signature_chunk, packet in zip(chunked_payloads_signature_chunks, stream):
+                packet.payload += chunked_payloads_signature_chunk
+
+            """ASYMMETRIC CONNECTION ENCRYPTION"""
+
+            # encrypt the entire stream (including the added signature chunks) and re-splice to original payload lengths
+            concatenated_payloads             = b"".join([packet.payload for packet in stream])
+            concatenated_payloads_encrypted   = symmetric_cipher.encrypt(concatenated_payloads, self._connection_symmetric_encryption_key, self._connection_symmetric_encryption_iv)
+
+            # split the encrypted stream back into the original packet sizes
+            chunked_payloads_encrypted_lengths = [len(packet.payload) for packet in stream]
+            chunked_payloads_encrypted_chunks = b"".join(islice(iter(concatenated_payloads_encrypted), i) for i in chunked_payloads_encrypted_lengths)
+
+            # set the packet payloads to the spliced connection encrypted stream packet payload
+            for chunked_payloads_encrypted_chunk, packet in zip(chunked_payloads_encrypted_chunks, stream):
+                packet.payload = chunked_payloads_encrypted_chunk
+
+            """ASYMMETRIC CONNECTION MAC"""
+
+            # generate kmac for entire stream (post connection encryption)
+            concatenated_payloads      = b"".join([packet.payload for packet in stream])
+            concatenated_payloads_kmac = message_authentication_codes.generate_tag(concatenated_payloads)
+
+            # chunk the kmac into equal lengths (amount of chunks = number of packets in stream)
+            chunked_payloads_kmac_lengths = ceil(len(concatenated_payloads_kmac) / len(stream))
+            chunked_payloads_kmac_chunks  = [concatenated_payloads_kmac[i : i + chunked_payloads_kmac_lengths] for i in range(0, len(concatenated_payloads_kmac), chunked_payloads_kmac_lengths)]
+
+            # append each kmac chunk to the corresponding packet (by index)
+            for chunked_payloads_kmac_chunk, packet in zip(chunked_payloads_kmac_chunks, stream):
+                packet.payload += chunked_payloads_kmac_chunk
