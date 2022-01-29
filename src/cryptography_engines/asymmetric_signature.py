@@ -1,4 +1,5 @@
-from pqcrypto.sign import dilithium4 as algorithm
+from pqcrypto.sign import dilithium4 as algorithm_1
+from pqcrypto.sign import rainbowVc_classic as algorithm
 
 
 class asymmetric_signature:
