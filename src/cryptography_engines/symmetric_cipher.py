@@ -1,32 +1,37 @@
 from cryptography.hazmat.primitives.ciphers import Cipher
 from cryptography.hazmat.primitives.ciphers.algorithms import AES as algorithm
 from cryptography.hazmat.primitives.ciphers.modes import CTR as mode
-from cryptography.hazmat.backends import default_backend
 import os
-
-
-class iv_context:
-    def __init__(self, nonce=b""):
-        self.nonce: bytes = nonce
-        self.counter: int = 0
-
-    def iv(self) -> bytes:
-        return self.nonce + (self.counter.to_bytes(16 - len(self.nonce), "big"))
 
 
 class symmetric_cipher:
 
     @staticmethod
-    def generate_key(key_length: int) -> bytes:
+    def generate_key(key_length: int = 32) -> bytes:
         return os.urandom(key_length)
 
     @staticmethod
-    def encrypt(data: bytes, key: bytes, iv: iv_context) -> bytes:
-        encryption_engine = Cipher(algorithm(key), mode(iv.iv()), default_backend()).encryptor()
-        iv.counter += 1
-        return encryption_engine.update(data) + encryption_engine.finalize()
+    def encrypt(data: bytes, key: bytes) -> bytes:
+        iv = os.urandom(8) + int(0).to_bytes(length=8, byteorder="little")
+        encryption_engine = Cipher(algorithm(key), mode(iv)).encryptor()
+        return iv + encryption_engine.update(data) + encryption_engine.finalize()
 
     @staticmethod
     def decrypt(data: bytes, key: bytes) -> bytes:
-        decryption_engine = Cipher(algorithm(key), mode(data), default_backend()).decryptor()
-        return decryption_engine.update(data) + decryption_engine.finalize()
+        decryption_engine = Cipher(algorithm(key), mode(data[:16])).decryptor()
+        return decryption_engine.update(data[16:]) + decryption_engine.finalize()
+
+
+if __name__ == "__main__":
+    symmetric_key = symmetric_cipher.generate_key(32)
+
+    print(plain_text := b"00000000000000000000000000000000")
+    print("-" * 20)
+
+    print(ciphertext_1 := symmetric_cipher.encrypt(plain_text, symmetric_key))
+    print(ciphertext_2 := symmetric_cipher.encrypt(plain_text, symmetric_key))
+    print(ciphertext_3 := symmetric_cipher.encrypt(plain_text, symmetric_key))
+
+    print(symmetric_cipher.decrypt(ciphertext_1, symmetric_key))
+    print(symmetric_cipher.decrypt(ciphertext_2, symmetric_key))
+    print(symmetric_cipher.decrypt(ciphertext_3, symmetric_key))

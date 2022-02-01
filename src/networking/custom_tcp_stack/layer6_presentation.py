@@ -7,6 +7,8 @@ from pydivert import Packet
 
 
 class layer6_presentation:
+    separator = "#"
+
     @staticmethod
     def symmetric_encrypt_stream_payloads(stream: list[Packet], key: bytes, iv: iv_context) -> None:
         for packet in stream:

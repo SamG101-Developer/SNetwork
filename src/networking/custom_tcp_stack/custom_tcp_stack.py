@@ -11,6 +11,9 @@ from ..packet_management.packet_injector import packet_injector
 from ..packet_management.packet_interceptor import packet_interceptor
 from ...cryptography_engines.symmetric_cipher import symmetric_cipher, iv_context
 from ...cryptography_engines.message_authentication_codes import message_authentication_codes
+from ...cryptography_engines.asymmetric_key_encapsulation_mechanism import asymmetric_key_encapsulation_mechanism
+from ...cryptography_engines.key_derivation_function import key_derivation_function
+from ...cryptography_engines.hash_algorithm import hash_algorithm
 
 from pydivert.packet import Packet
 
@@ -21,23 +24,29 @@ class stack_direction(Enum):
 
 
 class custom_tcp_stack:
-    def __init__(self, is_client=False):
+    def __init__(self, master_key: bytes, is_client: bool = False):
         self._packet_injector = packet_injector(self)
         self._packet_interceptor = packet_interceptor(self)
+        self._is_client = is_client
 
-        if is_client:
+        if self._is_client:
             self._relay_node_layers = 3
 
             self._packet_symmetric_encryption_ivs = []
             self._packet_symmetric_encryption_keys = []
             self._packet_kmac_keys = []
 
-            self._connection_symmetric_encryption_iv  = iv_context(urandom(16))  # one time use so can be random
-            self._connection_symmetric_encryption_key = b""
-            self._connection_asymmetric_signature_key = b""
-            self._connection_kmac_key = b""
+        else:
+            self._ephemeral_public_asymmetric_kem_key, self._ephemeral_private_asymmetric_kem_key = asymmetric_key_encapsulation_mechanism.generate_keypair()
 
-            self._initialize_cryptographic_keys()
+        self._connection_symmetric_encryption_iv     = iv_context(urandom(16))  # one time use so can be random
+        self._connection_symmetric_encryption_key    = key_derivation_function.generate_tag(master_key, hash_algorithm.hash(b"SYMMETRIC"), 32)
+        self._connection_kmac_key                    = key_derivation_function.generate_tag(master_key, hash_algorithm.hash(b"MAC"), 16)
+        self._connection_asymmetric_signature_key    = b""
+        self._connection_asymmetric_verification_key = b""
+
+        self._initialize_cryptographic_keys()
+
 
         self._flow_down_queue = queue()
         self._flow_up_queue = queue()
@@ -93,14 +102,14 @@ class custom_tcp_stack:
 
     def _level6_presentation(self, stream: list[Packet], direction: stack_direction):
         if direction == stack_direction.down:
+            if self._is_client:
 
-            """SYMMETRIC PACKET ENCRYPTION"""
+                # apply symmetric encryption and kmac to each packet individually
+                for layer in range(self._relay_node_layers):
+                    # TODO : layer6_presentation.add_next_hop_ip(stream, [])
+                    layer6_presentation.symmetric_encrypt_stream_payloads(stream, self._packet_symmetric_encryption_keys[layer], self._packet_symmetric_encryption_ivs[layer])
+                    layer6_presentation.kmac_append_to_stream_payloads(stream, self._packet_kmac_keys[layer])
 
-            # apply symmetric encryption and kmac to each packet individually
-            for layer in range(self._relay_node_layers):
-                # TODO : layer6_presentation.add_next_hop_ip(stream, [])
-                layer6_presentation.symmetric_encrypt_stream_payloads(stream, self._packet_symmetric_encryption_keys[layer], self._packet_symmetric_encryption_ivs[layer])
-                layer6_presentation.kmac_append_to_stream_payloads(stream, self._packet_kmac_keys[layer])
 
             """ASYMMETRIC CONNECTION SIGNATURE"""
 
@@ -114,7 +123,7 @@ class custom_tcp_stack:
 
             # append each signature chunk to the corresponding packet (by index)
             for chunked_payloads_signature_chunk, packet in zip(chunked_payloads_signature_chunks, stream):
-                packet.payload += chunked_payloads_signature_chunk
+                packet.payload += layer6_presentation.separator + chunked_payloads_signature_chunk
 
             """ASYMMETRIC CONNECTION ENCRYPTION"""
 
@@ -132,14 +141,28 @@ class custom_tcp_stack:
 
             """ASYMMETRIC CONNECTION MAC"""
 
-            # generate kmac for entire stream (post connection encryption)
+            # generate mac for entire stream (post connection encryption)
             concatenated_payloads      = b"".join([packet.payload for packet in stream])
-            concatenated_payloads_kmac = message_authentication_codes.generate_tag(concatenated_payloads)
+            concatenated_payloads_mac = message_authentication_codes.generate_tag(concatenated_payloads)
 
-            # chunk the kmac into equal lengths (amount of chunks = number of packets in stream)
-            chunked_payloads_kmac_lengths = ceil(len(concatenated_payloads_kmac) / len(stream))
-            chunked_payloads_kmac_chunks  = [concatenated_payloads_kmac[i : i + chunked_payloads_kmac_lengths] for i in range(0, len(concatenated_payloads_kmac), chunked_payloads_kmac_lengths)]
+            # chunk the mac into equal lengths (amount of chunks = number of packets in stream)
+            chunked_payloads_mac_lengths = ceil(len(concatenated_payloads_mac) / len(stream))
+            chunked_payloads_mac_chunks  = [concatenated_payloads_mac[i : i + chunked_payloads_mac_lengths] for i in range(0, len(concatenated_payloads_mac), chunked_payloads_mac_lengths)]
 
             # append each kmac chunk to the corresponding packet (by index)
-            for chunked_payloads_kmac_chunk, packet in zip(chunked_payloads_kmac_chunks, stream):
-                packet.payload += chunked_payloads_kmac_chunk
+            for chunked_payloads_mac_chunk, packet in zip(chunked_payloads_mac_chunks, stream):
+                packet.payload += layer6_presentation.separator + chunked_payloads_mac_chunk
+
+        elif direction == stack_direction.up:
+
+            """ASYMMETRIC CONNECTION MAC"""
+
+            # capture and remove kmac from each packet
+            chunked_packet_kmac_chunks = []
+            for packet in stream:
+                chunked_packet_kmac_chunks.append(packet.payload[packet.payload.find(layer6_presentation.separator) + 1:])
+                packet.payload = packet.payload[:packet.payload.find(layer6_presentation.separator)]
+
+            # regenerate mac from payload and compare it against received mac
+            concatenated_payloads = b"".join([packet.payload for packet in stream])
+            concatenated_payloads_mac = message_authentication_codes.generate_tag()

@@ -1,8 +1,11 @@
 from pqcrypto.sign import dilithium4 as algorithm_1
-from pqcrypto.sign import rainbowVc_classic as algorithm
+from pqcrypto.sign import rainbowIa_cyclic_compressed as algorithm
 
 
-class asymmetric_signature:
+class asymmetric_sign:
+    PUBLIC_KEY_LENGTH = algorithm.PUBLIC_KEY_SIZE
+    PRIVATE_KEY_LENGTH = algorithm.SECRET_KEY_SIZE
+    SIGNATURE_LENGTH = algorithm.SIGNATURE_SIZE
 
     @staticmethod
     def generate_keypair() -> tuple[bytes, bytes]:
