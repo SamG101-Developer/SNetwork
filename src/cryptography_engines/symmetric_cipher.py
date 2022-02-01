@@ -20,18 +20,3 @@ class symmetric_cipher:
     def decrypt(data: bytes, key: bytes) -> bytes:
         decryption_engine = Cipher(algorithm(key), mode(data[:16])).decryptor()
         return decryption_engine.update(data[16:]) + decryption_engine.finalize()
-
-
-if __name__ == "__main__":
-    symmetric_key = symmetric_cipher.generate_key(32)
-
-    print(plain_text := b"00000000000000000000000000000000")
-    print("-" * 20)
-
-    print(ciphertext_1 := symmetric_cipher.encrypt(plain_text, symmetric_key))
-    print(ciphertext_2 := symmetric_cipher.encrypt(plain_text, symmetric_key))
-    print(ciphertext_3 := symmetric_cipher.encrypt(plain_text, symmetric_key))
-
-    print(symmetric_cipher.decrypt(ciphertext_1, symmetric_key))
-    print(symmetric_cipher.decrypt(ciphertext_2, symmetric_key))
-    print(symmetric_cipher.decrypt(ciphertext_3, symmetric_key))
