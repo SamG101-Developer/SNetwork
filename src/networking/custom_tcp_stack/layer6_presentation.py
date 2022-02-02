@@ -1,4 +1,4 @@
-from ...cryptography_engines.symmetric_cipher import symmetric_cipher, iv_context
+from ...cryptography_engines.symmetric_cipher import cipher, iv_context
 from ...cryptography_engines.message_authentication_codes import message_authentication_codes
 from ...cryptography_engines.asymmetric_signature import asymmetric_signature
 from ...cryptography_engines.hash_algorithm import hash_algorithm
@@ -31,15 +31,15 @@ class layer6_presentation:
 
     @staticmethod
     def sign_payload(payload: bytes, key: bytes) -> bytes:
-        return asymmetric_signature.sign_message(key, hash_algorithm.hash(payload))
+        return asymmetric_signature.sign_message(key, hash_algorithm.hashing(payload))
 
 
 def symmetric_encrypt_packet_payload(packet: Packet, key: bytes, iv: iv_context) -> None:
-    packet.payload = symmetric_cipher.encrypt(packet.payload, key, iv)
+    packet.payload = cipher.encrypt(packet.payload, key, iv)
 
 
 def symmetric_decrypt_packet_payload(packet: Packet, key: bytes) -> None:
-    packet.payload = symmetric_cipher.decrypt(packet.payload, key)
+    packet.payload = cipher.decrypt(packet.payload, key)
 
 
 def kmac_append_to_payload(packet: Packet, key: bytes) -> None:

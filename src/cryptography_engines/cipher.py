@@ -4,7 +4,7 @@ from cryptography.hazmat.primitives.ciphers.modes import CTR as mode
 import os
 
 
-class symmetric_cipher:
+class cipher:
 
     @staticmethod
     def generate_key(key_length: int = 32) -> bytes:

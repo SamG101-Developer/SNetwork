@@ -9,7 +9,7 @@ from queue import Queue as queue
 from .layer6_presentation import layer6_presentation
 from ..packet_management.packet_injector import packet_injector
 from ..packet_management.packet_interceptor import packet_interceptor
-from ...cryptography_engines.symmetric_cipher import symmetric_cipher, iv_context
+from ...cryptography_engines.symmetric_cipher import cipher, iv_context
 from ...cryptography_engines.message_authentication_codes import message_authentication_codes
 from ...cryptography_engines.asymmetric_key_encapsulation_mechanism import asymmetric_key_encapsulation_mechanism
 from ...cryptography_engines.key_derivation_function import key_derivation_function
@@ -40,8 +40,8 @@ class custom_tcp_stack:
             self._ephemeral_public_asymmetric_kem_key, self._ephemeral_private_asymmetric_kem_key = asymmetric_key_encapsulation_mechanism.generate_keypair()
 
         self._connection_symmetric_encryption_iv     = iv_context(urandom(16))  # one time use so can be random
-        self._connection_symmetric_encryption_key    = key_derivation_function.generate_tag(master_key, hash_algorithm.hash(b"SYMMETRIC"), 32)
-        self._connection_kmac_key                    = key_derivation_function.generate_tag(master_key, hash_algorithm.hash(b"MAC"), 16)
+        self._connection_symmetric_encryption_key    = key_derivation_function.generate_tag(master_key, hash_algorithm.hashing(b"SYMMETRIC"), 32)
+        self._connection_kmac_key                    = key_derivation_function.generate_tag(master_key, hash_algorithm.hashing(b"MAC"), 16)
         self._connection_asymmetric_signature_key    = b""
         self._connection_asymmetric_verification_key = b""
 
@@ -110,7 +110,6 @@ class custom_tcp_stack:
                     layer6_presentation.symmetric_encrypt_stream_payloads(stream, self._packet_symmetric_encryption_keys[layer], self._packet_symmetric_encryption_ivs[layer])
                     layer6_presentation.kmac_append_to_stream_payloads(stream, self._packet_kmac_keys[layer])
 
-
             """ASYMMETRIC CONNECTION SIGNATURE"""
 
             # generate signature from the entire stream (post individual packet encryption)
@@ -129,7 +128,7 @@ class custom_tcp_stack:
 
             # encrypt the entire stream (including the added signature chunks) and re-splice to original payload lengths
             concatenated_payloads             = b"".join([packet.payload for packet in stream])
-            concatenated_payloads_encrypted   = symmetric_cipher.encrypt(concatenated_payloads, self._connection_symmetric_encryption_key, self._connection_symmetric_encryption_iv)
+            concatenated_payloads_encrypted   = cipher.encrypt(concatenated_payloads, self._connection_symmetric_encryption_key, self._connection_symmetric_encryption_iv)
 
             # split the encrypted stream back into the original packet sizes
             chunked_payloads_encrypted_lengths = [len(packet.payload) for packet in stream]

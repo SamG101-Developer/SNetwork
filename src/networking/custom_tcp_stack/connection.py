@@ -30,6 +30,6 @@ def initialize_connection_between_nodes(self, next_hop_address: str, my_static_p
             random_symmetric_master_key = os.urandom(128)
             signed_random_symmetric_master_key = random_symmetric_master_key + asymmetric_signature.sign_message(
                 my_static_private_key,
-                hash_algorithm.hash(random_symmetric_master_key))
+                hash_algorithm.hashing(random_symmetric_master_key))
 
             encrypted_signed_random_symmetric_master_key = asymmetric_key_encapsulation_mechanism.
