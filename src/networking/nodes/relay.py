@@ -23,6 +23,6 @@
 #         pass
 #
 #
-class relay_node_info:
-    ip: str
-    ephemeral_public_key: bytes
+# class relay_node_info:
+#     ip: str
+#     ephemeral_public_key: bytes

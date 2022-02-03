@@ -1,4 +1,5 @@
-from relay import relay_node_info
+from __future__ import annotations
+
 from cryptography_engines.kex import kex
 from cryptography_engines.kem import kem
 from cryptography_engines.cipher import key_set
@@ -9,30 +10,40 @@ class node:
     HOP_COUNT = 0
     IS_CLIENT = False
 
-    def __init__(self, relay_nodes: list[relay_node_info]):
+    def __init__(self, relay_nodes: list[node] = [], auto_initialize=False):
         self._my_ephemeral_kex_keys: list[tuple[bytes, bytes]]
-        self._other_nodes_info: list[relay_node_info]
+        self._other_nodes_info: list[node]
         self._shared_secrets: list[key_set]
         self._encapsulated_shared_secrets: list[bytes]
 
         self._my_ephemeral_kex_keys = [kex.generate_key_pair(self.IS_CLIENT) for _ in range(self.HOP_COUNT)]
-        self._other_nodes_info = relay_nodes
+        self._other_nodes = relay_nodes
         self._shared_secrets = []
         self._encapsulated_shared_secrets = []
 
+        self._initialized = False
+        if auto_initialize:
+            self.initialize()
+
+    def initialize(self):
+        self._initialized = True
         self._compute_new_shared_secrets()
         self._compute_kem_shared_secrets()
 
     def _compute_new_shared_secrets(self) -> None:
+        if not self._initialized: raise RuntimeError("Node must be initialized - call node.initialize()")
+
         for i in range(self.HOP_COUNT):
             my_ephemeral_secret_key: bytes = self._my_ephemeral_kex_keys[i][0]
-            their_ephemeral_public_key: bytes = self._other_nodes_info[i].ephemeral_public_key
+            their_ephemeral_public_key: bytes = self._other_nodes[i]._my_ephemeral_kex_keys[0][1]
             shared_secret: bytes = kex.compute_shared_secret(my_ephemeral_secret_key, their_ephemeral_public_key, self.IS_CLIENT)
             self._shared_secrets.append(key_set(shared_secret))
 
     def _compute_kem_shared_secrets(self) -> None:
+        if not self._initialized: raise RuntimeError("Node must be initialized - call node.initialize()")
+
         for i in range(self.HOP_COUNT):
-            their_ephemeral_public_key: bytes = self._other_nodes_info[i].ephemeral_public_key
+            their_ephemeral_public_key: bytes = self._other_nodes[i]._my_ephemeral_kex_keys[0][1]
             shared_secret: bytes = self._shared_secrets[i].master_key
             encapsulated_symmetric_master_key = kem.encrypt_kem(their_ephemeral_public_key, shared_secret)
             self._encapsulated_shared_secrets.append(encapsulated_symmetric_master_key)
@@ -43,7 +54,7 @@ class node:
         return all([constant_time.is_equal(known_hash, check_hash) for known_hash, check_hash in zip(known_hashes, check_hashes)])
 
 
-class client(node):
+class client_node(node):
     HOP_COUNT = 3
     IS_CLIENT = True
 
@@ -54,39 +65,30 @@ class relay_node(node):
 
 
 if __name__ == "__main__":
-    from pprint import pprint
-
     # Client perspective:
-    client_info = relay_node_info()
-    client_info.ephemeral_public_key = kex.generate_key_pair(True)[0]
+    relay_node_1 = relay_node()
+    relay_node_2 = relay_node()
+    relay_node_3 = relay_node()
 
-    relay_node_1 = relay_node([client_info])
-    relay_node_1_info = relay_node_info()
-    relay_node_1_info.ip = "xxx.xxx.xxx.xxx"
-    relay_node_1_info.ephemeral_public_key = kex.generate_key_pair(False)[0]  # RECV
+    client = client_node([relay_node_1, relay_node_2, relay_node_3], auto_initialize=True)
 
-    relay_node_2 = relay_node([client_info])
-    relay_node_2_info = relay_node_info()
-    relay_node_2_info.ip = "yyy.yyy.yyy.yyy"
-    relay_node_2_info.ephemeral_public_key = kex.generate_key_pair(False)[0]  # RECV
-
-    relay_node_3 = relay_node([client_info])
-    relay_node_3_info = relay_node_info()
-    relay_node_3_info.ip = "zzz.zzz.zzz.zzz"
-    relay_node_3_info.ephemeral_public_key = kex.generate_key_pair(False)[0]  # RECV
-
-    client = client([relay_node_1_info, relay_node_2_info, relay_node_3_info])
+    relay_node_1._other_nodes = [client]; relay_node_1.initialize()
+    relay_node_2._other_nodes = [client]; relay_node_2.initialize()
+    relay_node_3._other_nodes = [client]; relay_node_3.initialize()
 
     print("\nClient:")
     for key in client._my_ephemeral_kex_keys: print(key)
     print()
-    for ss in client._shared_secrets: print(ss)
+    for ss in client._shared_secrets: print(ss.master_key)
 
     print("\nRN_1")
     for key in relay_node_1._my_ephemeral_kex_keys: print(key)
+    for ss in relay_node_1._shared_secrets: print(ss.master_key)
 
     print("\nRN_2")
     for key in relay_node_2._my_ephemeral_kex_keys: print(key)
+    for ss in relay_node_2._shared_secrets: print(ss.master_key)
 
     print("\nRN_3")
     for key in relay_node_3._my_ephemeral_kex_keys: print(key)
+    for ss in relay_node_3._shared_secrets: print(ss.master_key)
