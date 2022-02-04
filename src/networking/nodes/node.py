@@ -11,7 +11,7 @@ class node:
     IS_CLIENT = False
 
     def __init__(self, next_nodes: list[node] = [], auto_initialize: bool = False):
-        self._my_ephemeral_kex_keys       = [kex.generate_key_pair(self.IS_CLIENT) for _ in range(self.HOP_COUNT)]
+        self._my_ephemeral_kex_key_pairs  = [kex.generate_key_pair(self.IS_CLIENT) for _ in range(self.HOP_COUNT)]
         self._shared_secrets              = []
         self._encapsulated_shared_secrets = []
         self._next_nodes                  = next_nodes
@@ -23,25 +23,15 @@ class node:
     def initialize(self):
         self._initialized = True
         self._compute_new_shared_secrets()
-        self._compute_kem_shared_secrets()
 
     def _compute_new_shared_secrets(self) -> None:
         if not self._initialized: raise RuntimeError("Node must be initialized - call node.initialize()")
 
         for i in range(self.HOP_COUNT):
-            my_ephemeral_secret_key: bytes = self._my_ephemeral_kex_keys[i][0]
-            their_ephemeral_public_key: bytes = self._next_nodes[i]._my_ephemeral_kex_keys[0][1]
+            my_ephemeral_secret_key: bytes = self._my_ephemeral_kex_key_pairs[i][0]
+            their_ephemeral_public_key: bytes = self._next_nodes[i]._my_ephemeral_kex_key_pairs[0][1]
             shared_secret: bytes = kex.compute_shared_secret(my_ephemeral_secret_key, their_ephemeral_public_key, self.IS_CLIENT)
-            self._shared_secrets.append(key_set(shared_secret))
-
-    def _compute_kem_shared_secrets(self) -> None:
-        if not self._initialized: raise RuntimeError("Node must be initialized - call node.initialize()")
-
-        for i in range(self.HOP_COUNT):
-            their_ephemeral_public_key: bytes = self._next_nodes[i]._my_ephemeral_kex_keys[0][1]
-            shared_secret: bytes = self._shared_secrets[i].master_key
-            encapsulated_symmetric_master_key = kem.encrypt_kem(their_ephemeral_public_key, shared_secret)
-            self._encapsulated_shared_secrets.append(encapsulated_symmetric_master_key)
+            self._shared_secrets.append(key_set(shared_secret, their_ephemeral_public_key))
 
     def _compare_signed_hashed_shared_secrets(self, hashed_signed_shared_secrets) -> bool:
         known_hashes = map(lambda keys: keys.hashed_key, self._shared_secrets)
@@ -50,12 +40,12 @@ class node:
 
     def single_key(self, index: int):
         copy = node()
-        copy._my_ephemeral_kex_keys = self._my_ephemeral_kex_keys
+        copy._my_ephemeral_kex_key_pairs = self._my_ephemeral_kex_key_pairs
         copy._next_nodes = self._next_nodes
         copy._shared_secrets = self._shared_secrets
         copy._encapsulated_shared_secrets = self._encapsulated_shared_secrets
 
-        copy._my_ephemeral_kex_keys = [copy._my_ephemeral_kex_keys[index]]
+        copy._my_ephemeral_kex_key_pairs = [copy._my_ephemeral_kex_key_pairs[index]]
         return copy
 
 
