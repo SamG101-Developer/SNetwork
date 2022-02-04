@@ -10,16 +10,11 @@ class node:
     HOP_COUNT = 0
     IS_CLIENT = False
 
-    def __init__(self, other_nodes: list[node] = [], auto_initialize=False):
-        self._my_ephemeral_kex_keys: list[tuple[bytes, bytes]]
-        self._other_nodes_info: list[node]
-        self._shared_secrets: list[key_set]
-        self._encapsulated_shared_secrets: list[bytes]
-
-        self._my_ephemeral_kex_keys = [kex.generate_key_pair(self.IS_CLIENT) for _ in range(self.HOP_COUNT)]
-        self._other_nodes = other_nodes
-        self._shared_secrets = []
+    def __init__(self, next_nodes: list[node] = [], auto_initialize: bool = False):
+        self._my_ephemeral_kex_keys       = [kex.generate_key_pair(self.IS_CLIENT) for _ in range(self.HOP_COUNT)]
+        self._shared_secrets              = []
         self._encapsulated_shared_secrets = []
+        self._next_nodes                  = next_nodes
 
         self._initialized = False
         if auto_initialize:
@@ -35,7 +30,7 @@ class node:
 
         for i in range(self.HOP_COUNT):
             my_ephemeral_secret_key: bytes = self._my_ephemeral_kex_keys[i][0]
-            their_ephemeral_public_key: bytes = self._other_nodes[i]._my_ephemeral_kex_keys[0][1]
+            their_ephemeral_public_key: bytes = self._next_nodes[i]._my_ephemeral_kex_keys[0][1]
             shared_secret: bytes = kex.compute_shared_secret(my_ephemeral_secret_key, their_ephemeral_public_key, self.IS_CLIENT)
             self._shared_secrets.append(key_set(shared_secret))
 
@@ -43,7 +38,7 @@ class node:
         if not self._initialized: raise RuntimeError("Node must be initialized - call node.initialize()")
 
         for i in range(self.HOP_COUNT):
-            their_ephemeral_public_key: bytes = self._other_nodes[i]._my_ephemeral_kex_keys[0][1]
+            their_ephemeral_public_key: bytes = self._next_nodes[i]._my_ephemeral_kex_keys[0][1]
             shared_secret: bytes = self._shared_secrets[i].master_key
             encapsulated_symmetric_master_key = kem.encrypt_kem(their_ephemeral_public_key, shared_secret)
             self._encapsulated_shared_secrets.append(encapsulated_symmetric_master_key)
@@ -56,7 +51,7 @@ class node:
     def single_key(self, index: int):
         copy = node()
         copy._my_ephemeral_kex_keys = self._my_ephemeral_kex_keys
-        copy._other_nodes = self._other_nodes
+        copy._next_nodes = self._next_nodes
         copy._shared_secrets = self._shared_secrets
         copy._encapsulated_shared_secrets = self._encapsulated_shared_secrets
 
@@ -82,9 +77,9 @@ if __name__ == "__main__":
 
     client = client_node([relay_node_1, relay_node_2, relay_node_3], auto_initialize=True)
 
-    relay_node_1._other_nodes = [client.single_key(0)]; relay_node_1.initialize()
-    relay_node_2._other_nodes = [client.single_key(1)]; relay_node_2.initialize()
-    relay_node_3._other_nodes = [client.single_key(2)]; relay_node_3.initialize()
+    relay_node_1._next_nodes = [client.single_key(0)]; relay_node_1.initialize()
+    relay_node_2._next_nodes = [client.single_key(1)]; relay_node_2.initialize()
+    relay_node_3._next_nodes = [client.single_key(2)]; relay_node_3.initialize()
 
     print("\nClient:")
     # for key in client._my_ephemeral_kex_keys: print(key)
