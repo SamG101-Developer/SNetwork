@@ -53,7 +53,7 @@ class node:
         check_hashes = map(lambda keys: keys.hashed_key, hashed_signed_shared_secrets)
         return all([constant_time.is_equal(known_hash, check_hash) for known_hash, check_hash in zip(known_hashes, check_hashes)])
 
-    def copy_single(self, index: int):
+    def single_key(self, index: int):
         copy = node()
         copy._my_ephemeral_kex_keys = self._my_ephemeral_kex_keys
         copy._other_nodes = self._other_nodes
@@ -82,28 +82,28 @@ if __name__ == "__main__":
 
     client = client_node([relay_node_1, relay_node_2, relay_node_3], auto_initialize=True)
 
-    relay_node_1._other_nodes = [client.copy_single(0)]; relay_node_1.initialize()
-    relay_node_2._other_nodes = [client.copy_single(1)]; relay_node_2.initialize()
-    relay_node_3._other_nodes = [client.copy_single(2)]; relay_node_3.initialize()
+    relay_node_1._other_nodes = [client.single_key(0)]; relay_node_1.initialize()
+    relay_node_2._other_nodes = [client.single_key(1)]; relay_node_2.initialize()
+    relay_node_3._other_nodes = [client.single_key(2)]; relay_node_3.initialize()
 
     print("\nClient:")
-    for key in client._my_ephemeral_kex_keys: print(key)
-    print()
+    # for key in client._my_ephemeral_kex_keys: print(key)
+    # print()
     for ss in client._shared_secrets: print(ss.master_key)
-    print()
-    for o in client._other_nodes: print(o._my_ephemeral_kex_keys)
+    # print()
+    # for o in client._other_nodes: print(o._my_ephemeral_kex_keys)
 
     print("\nRN_1")
-    for key in relay_node_1._my_ephemeral_kex_keys: print(key)
+    # for key in relay_node_1._my_ephemeral_kex_keys: print(key)
     for ss in relay_node_1._shared_secrets: print(ss.master_key)
-    for o in relay_node_1._other_nodes: print(o._my_ephemeral_kex_keys)
+    # for o in relay_node_1._other_nodes: print(o._my_ephemeral_kex_keys)
 
     print("\nRN_2")
-    for key in relay_node_2._my_ephemeral_kex_keys: print(key)
+    # for key in relay_node_2._my_ephemeral_kex_keys: print(key)
     for ss in relay_node_2._shared_secrets: print(ss.master_key)
-    for o in relay_node_2._other_nodes: print(o._my_ephemeral_kex_keys)
+    # for o in relay_node_2._other_nodes: print(o._my_ephemeral_kex_keys)
 
     print("\nRN_3")
-    for key in relay_node_3._my_ephemeral_kex_keys: print(key)
+    # for key in relay_node_3._my_ephemeral_kex_keys: print(key)
     for ss in relay_node_3._shared_secrets: print(ss.master_key)
-    for o in relay_node_3._other_nodes: print(o._my_ephemeral_kex_keys)
+    # for o in relay_node_3._other_nodes: print(o._my_ephemeral_kex_keys)

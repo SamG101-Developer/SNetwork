@@ -10,6 +10,4 @@ class kex:
 
     @staticmethod
     def compute_shared_secret(my_ephemeral_secret_key: bytes, their_ephemeral_public_key: bytes, sender: bool) -> bytes:
-        a = kex.DLL.derive_a(my_ephemeral_secret_key, their_ephemeral_public_key)
-        b = kex.DLL.derive_b(my_ephemeral_secret_key, their_ephemeral_public_key)
         return kex.DLL.derive_a(my_ephemeral_secret_key, their_ephemeral_public_key) if sender else kex.DLL.derive_b(my_ephemeral_secret_key, their_ephemeral_public_key)
