@@ -1,5 +1,5 @@
 from tcp_stack import tcp_stack
-from networking.nodes.client import client
+from networking.nodes.node import client
 
 
 class client_stack(tcp_stack):
