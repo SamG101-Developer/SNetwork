@@ -8,7 +8,7 @@ from cryptography_engines.constant_time import constant_time
 from cryptography_engines.hashing import hashing
 from cryptography_engines.mac import mac
 from cryptography_engines.timestamps import timestamps
-from cryptography_engines.warnings import timestamp_out_of_tolerance_warning, mac_mismatch_warning
+from cryptography_engines.warnings import *
 
 from pydivert.packet import Packet
 
@@ -24,8 +24,14 @@ class relay_node_stack(tcp_stack):
 
         hashed_their_public_static_key: bytes = b""  # TODO -> already stored from PKI
         hashed_timestamp = timestamps.generate_hashed_timestamp()
-        packet_payload = hashed_timestamp + hashed_their_public_static_key + packet_payload
+        packet_payload = hashed_timestamp + hashed_their_public_static_key + packet_payload + self._node.previous_node_ip_address.to_bytes()
         packet_payload = cipher.encrypt(packet_payload, self._node.shared_secret.cipher_key)
+
+        mac_tag = mac.generate_tag(packet_payload, self._node.shared_secret.mac_key)
+        packet_payload += mac_tag
+
+        # TODO -> move into layer 3
+        # TODO -> set the next ip address and forward the packet onto the next node
 
     def _flow_down(self, packet: Packet):
         # TODO -> move into layer 3
@@ -50,8 +56,8 @@ class relay_node_stack(tcp_stack):
             raise timestamp_out_of_tolerance_warning("Timestamp inside encrypted packet is out of tolerance")
 
         # get the 8-bit packet flag stored in the last byte of the payload
-        packet_payload_flags: int = packet_payload[-1]
-        packet_payload = packet_payload[:-1]
+        packet_payload_flags: int = packet_payload[-packet_flags.FLAG_LENGTH]
+        packet_payload = packet_payload[:-packet_flags.FLAG_LENGTH]
         packet.payload = packet_payload
 
         # TODO -> move into layer 5
@@ -68,3 +74,7 @@ class relay_node_stack(tcp_stack):
         elif packet_payload_flags & packet_flags.IPV4:
             next_node_ip_address = packet.payload[-4:]
             next_node_ip_address = b".".join([next_node_ip_address[i : i + 1] for i in range(0, 4, 1)])
+
+        # check that the next node's ip address is correct
+        if not constant_time.is_equal(next_node_ip_address, self._node.next_node_ip_address.to_string().encode()):
+            raise next_node_ip_address_mismatch_warning("Next node address embedded in packet != known next node address")
