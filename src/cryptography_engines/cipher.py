@@ -13,6 +13,12 @@ class cipher:
 
     @staticmethod
     def encrypt(data: bytes, key: bytes) -> bytes:
+        """
+        Apply symmetric encryption to plaintext (default algorithm is currently %s)
+        :param data: plaintext to encrypt
+        :param key: key to encrypt the plaintext with
+        :return: ciphertext
+        """
         iv = os.urandom(8) + int(0).to_bytes(length=8, byteorder="little")
         encryption_engine = Cipher(algorithm(key), mode(iv)).encryptor()
         return iv + encryption_engine.update(data) + encryption_engine.finalize()

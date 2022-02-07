@@ -1,4 +1,4 @@
-from cryptography_engines.utils.key_pair import key_pair
+from .utils.key_pair import key_pair
 
 from sibc.sidh import SIDH as algorithm, default_parameters
 

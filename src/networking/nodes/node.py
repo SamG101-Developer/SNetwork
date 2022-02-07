@@ -2,27 +2,31 @@ from __future__ import annotations
 
 import abc
 
+from networking.utils.ip import ip
 from cryptography_engines.kex import kex
 from cryptography_engines.signing import signing
 from cryptography_engines.utils.key_pair import key_pair
 from cryptography_engines.utils.key_set import key_set
-from utils.ip import ip
 
 
 class node(abc.ABC):
     NUMBER_HOPS: int = 0
     IS_CLIENT: bool = False
 
-    def __init__(self):
-        self._my_static_signing_key_pair: key_pair = signing.import_keypair()
+    def __init__(self, **kwargs):
+        self._my_static_signing_key_pair: key_pair = key_pair()  # signing.import_keypair("") TODO
         self._their_static_signing_key_pairs: list[key_pair] = []
         self._my_ephemeral_kex_key_pairs: list[key_pair] = []
         self._their_ephemeral_kex_key_pais: list[key_pair] = []
         self._shared_secrets: list[key_set] = []
 
         self._ip_address: ip = ip("")  # TODO -> securely determine own external ip address
-        self._relay_nodes: list[node] = []
-        self._initialized: bool = False
+        self._relay_nodes: list[node] = kwargs.get("relay_nodes", [])
+        self._initialized: bool = kwargs.get("initialized", False)
+
+        if len(self._relay_nodes):
+            for relay_node in self._relay_nodes:
+                relay_node.initialize()
 
     def initialize(self):
         self._shared_secrets = [

@@ -1,5 +1,5 @@
-from node import node
-from utils.ip import ip
+from .node import node
+from ..utils.ip import ip
 
 
 class relay_node(node):

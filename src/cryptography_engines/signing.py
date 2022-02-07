@@ -1,7 +1,7 @@
 import time
 
-from cryptography_engines.utils.key_pair import key_pair
-from cryptography_engines.timestamps import timestamps
+from .utils.key_pair import key_pair
+from .timestamps import timestamps
 
 from pqcrypto.sign import rainbowIa_cyclic_compressed as algorithm
 

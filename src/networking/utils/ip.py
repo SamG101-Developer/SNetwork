@@ -1,5 +1,5 @@
 class ip:
-    def __init__(self, ip_address: str):
+    def __init__(self, ip_address: str = ""):
         self._ip_string = ip_address
 
     def to_string(self) -> str:

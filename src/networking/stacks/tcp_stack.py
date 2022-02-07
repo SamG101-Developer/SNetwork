@@ -1,3 +1,5 @@
+from networking.nodes.client_node import client_node
+from networking.nodes.node import node
 from networking.packet_management.packet_errors import packet_ip_format_unknown_error
 from networking.packet_management.packet_flags import packet_flags
 from cryptography_engines.cipher import cipher
@@ -6,10 +8,13 @@ from cryptography_engines.hashing import hashing
 from cryptography_engines.mac import mac
 from cryptography_engines.timestamps import timestamps
 from cryptography_engines.warnings import *
-from networking.nodes.node import node
-from networking.nodes.client_node import client_node
 
 from pydivert.packet import Packet
+
+
+# TODO -> THIS IS POORLY WRITTEN CODE
+# TODO -> BREAK DOWN FLOW METHODS INTO SUB METHODS
+# TODO -> MOVE VERIFICATIONS TOGETHER? (OR PUT AT THE END OF SUB METHODS -> CUSTOM DECORATOR?)
 
 
 class tcp_stack:
@@ -89,3 +94,19 @@ class tcp_stack:
         # check that the next node's ip address is correct
         if not constant_time.is_equal(next_node_ip_address, self._node.relay_nodes[iteration].ip_address.to_string().encode()):
             raise next_node_ip_address_mismatch_warning("Next node address embedded in packet != known next node address")
+
+
+if __name__ == "__main__":
+    from networking.nodes.relay_node import relay_node
+    from networking.utils.ip import ip
+
+    relay_node_1 = relay_node(ip(), ip())
+    relay_node_2 = relay_node(ip(), ip())
+    relay_node_3 = relay_node(ip(), ip())
+
+    client = client_node(relay_nodes=[relay_node_1, relay_node_2, relay_node_3], auto_initialize=True)
+
+    print(relay_node_1.shared_secrets[0])
+    print(relay_node_2.shared_secrets[0])
+    print(relay_node_3.shared_secrets[0])
+    print([ss for ss in map(lambda x: x.master_key, client_node.shared_secrets)])
