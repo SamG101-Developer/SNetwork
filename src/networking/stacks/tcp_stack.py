@@ -14,6 +14,8 @@ from pydivert.packet import Packet
 
 class tcp_stack:
     def __init__(self, node_info: node, is_client: bool):
+        assert node.initialized
+
         self._node: node = node_info
         self._is_client: bool = is_client
 
