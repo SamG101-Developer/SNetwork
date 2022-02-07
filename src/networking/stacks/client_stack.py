@@ -19,7 +19,7 @@ class client_stack(tcp_stack):
         # capture the current packet payload
         packet_payload: bytes = packet.payload
 
-        for i in range(self._number_hops):
+        for i in range(self._number_hops - 1, -1, -1):
             # get the current shared secret key set
             current_key_set: key_set = self._node.shared_secrets[i]
 
@@ -40,3 +40,11 @@ class client_stack(tcp_stack):
 
         # set the packet's payload to the encrypted payload
         packet.payload = packet_payload
+
+    def _flow_down(self, packet: Packet):
+        # capture the current packet payload
+        packet_payload: bytes = packet.payload
+
+        for i in range(self._number_hops):
+            # get the current shared secret key set
+            current_key_set: key_set = self._node.shared_secrets[i]

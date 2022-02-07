@@ -1,0 +1,6 @@
+Change the relay_node.shared_secret to relay_node.shared_secrets; list size 1
+move this attribute and client_node.shared_secret into the node base class
+move the flow up and down methods into the tcp_stack base stack class
+move set a class-attribute NUMBER_HOPS: int = x for the amount of times to loop
+ie _flow_down() has a 'for i in range(self.NUMBER_HOPS)' or similar
+maybe remove the derived stack classes then -> unless extra functionality like KEM stuff and signing / verifying?
