@@ -1,5 +1,7 @@
 from typing import Optional
 
+from cryptography_engines.hashing import hashing
+
 
 class key_pair:
     def __init__(self, secret_key: Optional[bytes] = None, public_key: Optional[bytes] = None):
@@ -13,3 +15,7 @@ class key_pair:
     @property
     def secret_key(self) -> Optional[bytes]:
         return self._secret_key
+
+    @property
+    def public_key_hashed(self) -> bytes:
+        return hashing.hash(self._public_key or b"").digest()
