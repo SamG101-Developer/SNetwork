@@ -25,6 +25,7 @@ class node(abc.ABC):
         self._shared_secrets: list[key_set] = []
 
         for relay_node in self._relay_nodes:
+            relay_node._their_ephemeral_kex_key_pairs = [self._my_ephemeral_kex_key_pairs[self._relay_nodes.index(relay_node)]]
             relay_node.initialize()
 
     def initialize(self):
