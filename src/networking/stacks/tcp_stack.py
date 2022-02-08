@@ -106,7 +106,9 @@ if __name__ == "__main__":
 
     client = client_node(relay_nodes=[relay_node_1, relay_node_2, relay_node_3], auto_initialize=True)
 
-    print(relay_node_1.shared_secrets[0])
-    print(relay_node_2.shared_secrets[0])
-    print(relay_node_3.shared_secrets[0])
-    print([ss for ss in map(lambda x: x.master_key, client_node.shared_secrets)])
+    print(relay_node_1.shared_secrets[0].hash_key.hex())
+    print(relay_node_2.shared_secrets[0].hash_key.hex())
+    print(relay_node_3.shared_secrets[0].hash_key.hex())
+
+    for ss in client.shared_secrets:
+        print(ss.hash_key.hex())

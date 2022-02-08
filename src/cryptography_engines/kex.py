@@ -8,7 +8,8 @@ class kex:
 
     @staticmethod
     def generate_key_pair(sender: bool) -> key_pair:
-        return key_pair(kex.DLL.keygen_a() if sender else kex.DLL.keygen_b())
+        key_pair_tuple: tuple[bytes, ...] = kex.DLL.keygen_a() if sender else kex.DLL.keygen_b()
+        return key_pair(*key_pair_tuple)
 
     @staticmethod
     def compute_shared_secret(my_ephemeral_secret_key: bytes, their_ephemeral_public_key: bytes, sender: bool) -> bytes:

@@ -28,13 +28,18 @@ class node(abc.ABC):
             relay_node._their_ephemeral_kex_key_pairs = [self._my_ephemeral_kex_key_pairs[self._relay_nodes.index(relay_node)]]
             relay_node.initialize()
 
+        if kwargs.get("auto_initialize"):
+            self.initialize()
+
     def initialize(self):
-        print(id(self), self._my_ephemeral_kex_key_pairs, self._their_ephemeral_kex_key_pairs)
         self._shared_secrets = [
-            kex.compute_shared_secret(
-                my_ephemeral_kex_key_pair.secret_key,
-                their_ephemeral_kex_key_pair.public_key,
-                self.IS_CLIENT)
+            key_set(
+                kex.compute_shared_secret(
+                    my_ephemeral_kex_key_pair.secret_key,
+                    their_ephemeral_kex_key_pair.public_key,
+                    self.IS_CLIENT),
+                their_ephemeral_kex_key_pair.public_key
+            )  # TODO : tidy this block of code
 
             for my_ephemeral_kex_key_pair, their_ephemeral_kex_key_pair in zip(self._my_ephemeral_kex_key_pairs, self._their_ephemeral_kex_key_pairs)
         ]
