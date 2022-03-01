@@ -61,7 +61,7 @@ class tcp_stack:
 
         # check that the mac is valid for the encrypted payload
         if not mac.generate_tag_matches(packet_payload, self._node.shared_secrets[iteration].mac_key, mac_tag):
-            raise mac_mismatch_warning("Message authentication code doesn't match packet payload")
+            raise mac_mismatch_warning("Message authentication code doesn't match packet payload (mitigating an altered ciphertext attack)")
 
         # get the timestamp and public key embedded into the encrypted payload
         packet_payload = cipher.decrypt(packet_payload, self._node.shared_secrets[iteration].cipher_key)
@@ -71,7 +71,7 @@ class tcp_stack:
 
         # check that the timestamp is in tolerance and the public key is this node's static public key
         if not timestamps.is_in_tolerance(hashed_timestamp) or not constant_time.is_equal(self._node.my_static_signing_key_pair.public_key_hashed, hashed_my_static_public_key):
-            raise timestamp_out_of_tolerance_warning("Timestamp inside encrypted packet is out of tolerance")
+            raise timestamp_out_of_tolerance_warning("Timestamp inside encrypted packet is out of tolerance (mitigating a timing attack)")
 
         # get the 8-bit packet flag stored in the last byte of the payload
         packet_payload_flags: int = packet_payload[-packet_flags.FLAG_LENGTH]
