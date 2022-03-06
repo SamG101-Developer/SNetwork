@@ -9,7 +9,7 @@ from cryptography_engines.mac import mac
 from cryptography_engines.timestamps import timestamps
 from cryptography_engines.warnings import *
 
-from pydivert.packet import Packet
+from pydivert.packet import Packet, Direction
 
 
 # TODO -> THIS IS POORLY WRITTEN CODE
@@ -24,11 +24,19 @@ class tcp_stack:
         self._node: node = node_info
         self._is_client: bool = is_client
 
-    def _flow_up(self, packet: Packet):
+    def send(self, packet: Packet):
         # flowing up from the web to the node
-        [self._internal_flow_up(packet, i) if not isinstance(self._node, client_node) else self._internal_flow_down(packet, i) for i in range(self._node.NUMBER_HOPS)]
+        print(packet.payload)
 
-    def _flow_down(self, packet: Packet):
+        for i in range(self._node.NUMBER_HOPS):
+            if not isinstance(self._node, client_node):
+                packet = self._internal_flow_up(packet, i)
+            else:
+                packet = self._internal_flow_down(packet, i)
+
+        print(packet.payload)
+
+    def recv(self, packet: Packet):
         # flowing down from the node to the web
         [self._internal_flow_down(packet, i) if not isinstance(self._node, client_node) else self._internal_flow_up(packet, i) for i in range(self._node.NUMBER_HOPS)]
 
@@ -50,6 +58,10 @@ class tcp_stack:
         # generate a mac tag and append it to the encrypted packet payload
         mac_tag = mac.generate_tag(packet_payload, self._node.shared_secrets[iteration].mac_key)
         packet_payload += mac_tag
+
+        # update the packet payload and return the packet
+        packet.payload = packet_payload
+        return packet
 
         # TODO -> set the next ip address and forward the packet onto the next node (next going backwards)
 
@@ -95,20 +107,24 @@ class tcp_stack:
         if not constant_time.is_equal(next_node_ip_address, self._node.relay_nodes[iteration].ip_address.to_string().encode()):
             raise next_node_ip_address_mismatch_warning("Next node address embedded in packet != known next node address")
 
+        # update the packet payload and return the packet
+        packet.payload = packet_payload
+        return packet
+
 
 if __name__ == "__main__":
     from networking.nodes.relay_node import relay_node
-    from networking.utils.ip import ip
 
-    relay_node_1 = relay_node(ip(), ip())
-    relay_node_2 = relay_node(ip(), ip())
-    relay_node_3 = relay_node(ip(), ip())
-
+    relay_node_1 = relay_node()
+    relay_node_2 = relay_node()
+    relay_node_3 = relay_node()
     client = client_node(relay_nodes=[relay_node_1, relay_node_2, relay_node_3], auto_initialize=True)
 
-    print(relay_node_1.shared_secrets[0].hash_key.hex())
-    print(relay_node_2.shared_secrets[0].hash_key.hex())
-    print(relay_node_3.shared_secrets[0].hash_key.hex())
+    relay_node_1_stack = tcp_stack(relay_node_1, False)
+    relay_node_2_stack = tcp_stack(relay_node_2, False)
+    relay_node_3_stack = tcp_stack(relay_node_3, False)
+    client_stack = tcp_stack(client, True)
 
-    for ss in client.shared_secrets:
-        print(ss.hash_key.hex())
+    packet = Packet(b"hello world", 0, Direction.OUTBOUND)
+    packet.payload = b"hello world"
+    client_stack.send(packet)

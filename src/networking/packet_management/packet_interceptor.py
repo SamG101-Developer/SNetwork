@@ -24,11 +24,12 @@ class packet_interceptor:
 
         # loop until there are no packets left to process
         while True:
+            # intercept a packet
             packet: Packet = self._interceptor.recv()
             if packet.payload:
                 print("%s -> %s (%s)" % (packet.src_addr, packet.dst_addr, packet.payload[:30]))
-            self._interceptor.send(packet)
 
+            # drop insecure packets, and queue secure packets
             if packet.dst_port != 80:
                 self._packet_queue.put(packet)
 
