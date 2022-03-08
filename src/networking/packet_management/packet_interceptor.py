@@ -2,6 +2,7 @@ from typing import Optional
 
 from threading import Thread
 from queue import Queue
+import ubjson, gzip
 
 from pydivert.windivert import WinDivert
 from pydivert.packet import Packet
@@ -28,6 +29,7 @@ class packet_interceptor:
             packet: Packet = self._interceptor.recv()
             if packet.payload:
                 print("%s -> %s (%s)" % (packet.src_addr, packet.dst_addr, packet.payload[:30]))
+                print(ubjson.dumpb(packet))
 
             # drop insecure packets, and queue secure packets
             if packet.dst_port != 80:

@@ -18,4 +18,4 @@ class key_pair:
 
     @property
     def public_key_hashed(self) -> bytes:
-        return hashing.hash(self._public_key or b"").digest()
+        return hashing.hash(self._public_key or b"")

@@ -6,17 +6,21 @@ from .hashing import hashing
 
 
 class timestamps:
-    TOLERANCE: int = 1
+    TOLERANCE: int = 2
 
     @staticmethod
-    def generate_timestamp() -> float:
-        return round(time(), 2)
+    def generate_timestamp() -> int:
+        return int(time())
 
     @staticmethod
     def generate_hashed_timestamp() -> bytes:
-        return hashing.hash(pack("f", timestamps.generate_timestamp()))
+        return hashing.hash(timestamps.encode_timestamp(timestamps.generate_timestamp()))
 
     @staticmethod
     def is_in_tolerance(hash_to_match: bytes) -> bool:
         now = timestamps.generate_timestamp()
-        return any([hashing.hash(pack("f", now + i)) == hash_to_match] for i in linspace(-timestamps.TOLERANCE, 1, 100 * timestamps.TOLERANCE + 1))
+        return any([hashing.hash(timestamps.encode_timestamp(now + i)) == hash_to_match] for i in range(0, timestamps.TOLERANCE))
+
+    @staticmethod
+    def encode_timestamp(timestamp: int):
+        return pack("f", timestamp)
