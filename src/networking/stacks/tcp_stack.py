@@ -1,3 +1,5 @@
+import os
+
 from pydivert import WinDivert
 
 from networking.nodes.client_node import client_node
@@ -35,12 +37,26 @@ class tcp_stack:
                 self._internal_flow_up(packet, i)
             else:
                 self._internal_flow_down(packet, i)
+            print("ROUND%d_TEXT: " % i, packet.payload)
 
         print("CIPHER_TEXT: ", packet.payload)
+        print()
 
     def recv(self, packet: Packet):
         # flowing down from the node to the web
-        [self._internal_flow_down(packet, i) if not isinstance(self._node, client_node) else self._internal_flow_up(packet, i) for i in range(self._node.NUMBER_HOPS)]
+        print("CIPHER_TEXT: ", packet.payload)
+
+        for i in range(self._node.NUMBER_HOPS):
+            if isinstance(self._node, client_node):
+                self._internal_flow_up(packet, i)
+            else:
+                self._internal_flow_down(packet, i)
+            print("ROUND%d_TEXT: " % i, packet.payload)
+
+        print("PLAIN_TEXT : ", packet.payload)
+        print()
+
+        # [self._internal_flow_down(packet, i) if not isinstance(self._node, client_node) else self._internal_flow_up(packet, i) for i in range(self._node.NUMBER_HOPS)]
 
     def _internal_flow_up(self, packet: Packet, iteration: int):
         # TODO -> ip attachment and flags
@@ -49,15 +65,15 @@ class tcp_stack:
         packet_payload: bytes = packet.payload
 
         # generate a hash of the relay node's public static key and a timestamp
-        hashed_their_public_static_key: bytes = b""  # TODO -> already stored from PKI
+        hashed_their_public_static_key: bytes = os.urandom(hashing.HASH_LENGTH)  # TODO -> already stored from PKI
         hashed_timestamp = timestamps.generate_hashed_timestamp()
 
         # add packet flags for the next node to tailer their interpretation to
         packet_payload += bin(packet_flags.IPV4)[2:].zfill(8).encode()
 
         # append these hashes to the packet payload
-        ip_address = (self._node.relay_nodes[iteration] if isinstance(self._node, client_node) else self._node.previous_nodes[iteration]).ip_address.to_bytes()
-        packet_payload = hashed_timestamp + hashed_their_public_static_key + packet_payload + ip_address
+        # ip_address = (self._node.relay_nodes[iteration] if isinstance(self._node, client_node) else self._node.previous_nodes[iteration]).ip_address.to_bytes()
+        packet_payload = hashed_timestamp + hashed_their_public_static_key + packet_payload  # + ip_address
         packet_payload = cipher.encrypt(packet_payload, self._node.shared_secrets[iteration].cipher_key)
 
         # generate a mac tag and append it to the encrypted packet payload
@@ -92,24 +108,23 @@ class tcp_stack:
         # get the 8-bit packet flag stored in the last byte of the payload
         packet_payload_flags: int = int(packet_payload.decode(errors="ignore")[-packet_flags.FLAG_LENGTH:], 2)
         packet_payload = packet_payload[:-packet_flags.FLAG_LENGTH]
-        packet.payload = packet_payload
 
         # check that the packet flags are valid for ip detection
         if not (packet_payload_flags & (packet_flags.IPV4 | packet_flags.IPV6)):
             raise packet_ip_format_unknown_error("Packet's contained next node IP must in be IPv4 or IPv6 format")
 
         # get the next ip address in the circuit based on whether IPv4 ir IPv6 is being used
-        next_node_ip_address: bytes = b""
-        if packet_payload_flags & packet_flags.IPV6:
-            next_node_ip_address = packet_payload[-16:]
-            next_node_ip_address = b":".join([next_node_ip_address[i : i + 2] for i in range(0, 16, 2)])
-        elif packet_payload_flags & packet_flags.IPV4:
-            next_node_ip_address = packet.payload[-4:]
-            next_node_ip_address = b".".join([next_node_ip_address[i : i + 1] for i in range(0, 4, 1)])
+        # next_node_ip_address: bytes = b""
+        # if packet_payload_flags & packet_flags.IPV6:
+        #     next_node_ip_address = packet_payload[-16:]
+        #     next_node_ip_address = b":".join([next_node_ip_address[i : i + 2] for i in range(0, 16, 2)])
+        # elif packet_payload_flags & packet_flags.IPV4:
+        #     next_node_ip_address = packet.payload[-4:]
+        #     next_node_ip_address = b".".join([next_node_ip_address[i : i + 1] for i in range(0, 4, 1)])
 
         # check that the next node's ip address is correct
-        if not constant_time.is_equal(next_node_ip_address, self._node.relay_nodes[iteration].ip_address.to_string().encode()):
-            raise next_node_ip_address_mismatch_warning("Next node address embedded in packet != known next node address")
+        # if not constant_time.is_equal(next_node_ip_address, self._node.relay_nodes[iteration].ip_address.to_string().encode()):
+        #     raise next_node_ip_address_mismatch_warning("Next node address embedded in packet != known next node address")
 
         # update the packet payload
         packet.payload = packet_payload

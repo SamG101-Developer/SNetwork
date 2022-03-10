@@ -12,5 +12,5 @@ class mac:
         return hmac(key, data, hash_algorithm).digest()[:mac.TAG_LENGTH]
 
     @staticmethod
-    def generate_tag_matches(data: bytes, key: bytes,  tag_to_match_against: bytes):
+    def generate_tag_matches(data: bytes, key: bytes, tag_to_match_against: bytes) -> bool:
         return constant_time.is_equal(mac.generate_tag(data, key), tag_to_match_against)
