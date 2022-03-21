@@ -30,35 +30,23 @@ class tcp_stack:
 
     def send(self, packet: Packet):
         # flowing up from the web to the node
-        print("PLAIN_TEXT : ", packet.payload)
-
         for i in range(self._node.NUMBER_HOPS - 1, -1, -1):
             if isinstance(self._node, client_node):
-                self._internal_flow_up(packet, i)
+                self._wrap_packet(packet, i)
             else:
-                self._internal_flow_down(packet, i)
-            print("ROUND%d_TEXT: " % i, packet.payload)
-
-        print("CIPHER_TEXT: ", packet.payload)
-        print()
+                self._unwrap_packet(packet, i)
 
     def recv(self, packet: Packet):
         # flowing down from the node to the web
-        print("CIPHER_TEXT: ", packet.payload)
-
         for i in range(self._node.NUMBER_HOPS):
             if isinstance(self._node, client_node):
-                self._internal_flow_up(packet, i)
+                self._wrap_packet(packet, i)
             else:
-                self._internal_flow_down(packet, i)
-            print("ROUND%d_TEXT: " % i, packet.payload)
-
-        print("PLAIN_TEXT : ", packet.payload)
-        print()
+                self._unwrap_packet(packet, i)
 
         # [self._internal_flow_down(packet, i) if not isinstance(self._node, client_node) else self._internal_flow_up(packet, i) for i in range(self._node.NUMBER_HOPS)]
 
-    def _internal_flow_up(self, packet: Packet, iteration: int):
+    def _wrap_packet(self, packet: Packet, iteration: int):
         # TODO -> ip attachment and flags
 
         # get the packet payload
@@ -85,7 +73,7 @@ class tcp_stack:
 
         # TODO -> set the next ip address and forward the packet onto the next node (next going backwards)
 
-    def _internal_flow_down(self, packet: Packet, iteration: int):
+    def _unwrap_packet(self, packet: Packet, iteration: int):
         # get the packet payload and remove the mac code at the end of it
         packet_payload: bytes = packet.payload
         mac_tag: bytes = packet_payload[-mac.TAG_LENGTH:]
@@ -147,6 +135,10 @@ if __name__ == "__main__":
     client_stack = tcp_stack(client, True)
 
     client_stack.send(p)
+    print(p.payload)
+
     relay_node_1_stack.recv(p)
     relay_node_2_stack.recv(p)
     relay_node_3_stack.recv(p)
+
+    print(p.payload)
