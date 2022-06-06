@@ -21,7 +21,7 @@ class node(abc.ABC):
         self._my_static_signing_key_pair: key_pair = key_pair()  # signing.import_keypair("") TODO
         self._their_static_signing_key_pairs: list[key_pair] = []
         self._my_ephemeral_kex_key_pairs: list[key_pair] = [kex.generate_key_pair(self.IS_CLIENT) for i in range(self.NUMBER_HOPS)]
-        self._their_ephemeral_kex_key_pairs: list[key_pair] = [relay_node.my_ephemeral_kex_key_pairs[0] for relay_node in self._relay_nodes]
+        self._their_ephemeral_kex_key_pairs: list[key_pair] = [relay_node._my_ephemeral_kex_key_pairs[0] for relay_node in self._relay_nodes]
         self._shared_secrets: list[key_set] = []
 
         for relay_node in self._relay_nodes:

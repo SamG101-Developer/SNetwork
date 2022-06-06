@@ -1,6 +1,6 @@
 import hkdf
 
-from hashing import algorithm as hash_algorithm
+from .hashing import algorithm as hash_algorithm
 
 
 class kdf:

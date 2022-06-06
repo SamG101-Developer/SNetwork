@@ -1,7 +1,7 @@
 from hmac import new as hmac
 
-from hashing import algorithm as hash_algorithm
-from constant_time import constant_time
+from .hashing import algorithm as hash_algorithm
+from .constant_time import constant_time
 
 
 class mac:

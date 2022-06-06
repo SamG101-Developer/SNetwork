@@ -9,5 +9,10 @@ class constant_time:
 
     @staticmethod
     def is_equal(left: bytes, right: bytes):
-        # check if two values are equal in constant time
+        # check if two values are equal (in constant time)
         return bytes_eq(left, right)
+
+    @staticmethod
+    def is_not_equal(left: bytes, right: bytes):
+        # check if two values are not equal (in constant time)
+        return not constant_time.is_equal(left, right)
